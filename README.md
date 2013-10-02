@@ -11,7 +11,7 @@ Coupled with BBPress plugin, this will allow you to easily create your own Suppo
 
 ### License
 
-IshYoBoy Purchase is released under GPLv3 - [http://www.gnu.org/copyleft/gpl.html](http://www.gnu.org/copyleft/gpl.html). You are free to redistribute & modify the plugin in either free or commercial products. Please kindly keep all links & credits intact.
+IshYoBoy Purchase Verifier is released under GPLv3 - [http://www.gnu.org/copyleft/gpl.html](http://www.gnu.org/copyleft/gpl.html). You are free to redistribute & modify the plugin in either free or commercial products. Please kindly keep all links & credits intact.
 
 ### Demo
 
