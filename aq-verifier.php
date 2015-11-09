@@ -50,6 +50,7 @@ if(!class_exists('AQ_Verifier')) {
 		private $page; // settings page slug
 		private $options; // global options
 		private $apis;
+		private $theme_supported_message;
 		public $plugin_url;
 		public $plugin_path;
 
@@ -65,8 +66,8 @@ if(!class_exists('AQ_Verifier')) {
 			$this->apis = Array(
 				'envato' => Array(
 					'name' => __( 'ThemeForest', 'a10e_av' ),
-					'url' => 'http://marketplace.envato.com/api/edge/%1$s/%2$s/verify-purchase:%3$s.json', // http://marketplace.envato.com/api/edge/{USERNAME}/{APIKEY}/verify-purchase:{PURCHASE-CODE}.json
-					'api_info' => 'http://themeforest.net/help/api',
+					'url' => 'https://api.envato.com/v2/market/author/sale?code=%3$s', // http://marketplace.envato.com/api/edge/{USERNAME}/{APIKEY}/verify-purchase:{PURCHASE-CODE}.json
+					'token_info' => 'https://build.envato.com/create-token/',
 					'help_img' => plugin_dir_url( $file ) . 'img/envato-item-purchase-code.png' // should be placed in the rood of the theme
 				),
 				'mojomarketplace' =>  Array(
@@ -76,6 +77,7 @@ if(!class_exists('AQ_Verifier')) {
 					'help_img' => plugin_dir_url( $file ) . 'img/mojomarketplace-item-purchase-code.png' // should be placed in the rood of the theme
 				)
 			);
+			$this->theme_supported_message = '';
 
 			$this->apis = apply_filters( 'verifier_apis', $this->apis );
 
@@ -133,7 +135,7 @@ if(!class_exists('AQ_Verifier')) {
 
 				add_settings_field(
 					'enable_' . $marketplace_slug . '_verification',
-					$marketplace_data['name'] . ' ' . __( 'verification' ),
+					$marketplace_data['name'] . ' ' . __( 'verification', 'a10e_av' ),
 					array($this, 'settings_field_checkbox'),
 					$slug,
 					$slug,
@@ -145,7 +147,7 @@ if(!class_exists('AQ_Verifier')) {
 
 				add_settings_field(
 					$marketplace_slug . '_marketplace_username',
-					$marketplace_data['name'] . ' ' . __( 'Username' ),
+					$marketplace_data['name'] . ' ' . __( 'Username', 'a10e_av' ),
 					array($this, 'settings_field_input'),
 					$slug,
 					$slug,
@@ -155,17 +157,32 @@ if(!class_exists('AQ_Verifier')) {
 					)
 				);
 
-				add_settings_field(
-					$marketplace_slug . '_api_key',
-					$marketplace_data['name'] . ' ' .  __( 'API Key' ),
-					array($this, 'settings_field_input'),
-					$slug,
-					$slug,
-					array(
-						'id' 	=> $marketplace_slug . '_api_key',
-						'desc' 	=> __('More info about ', 'a10e') . '<a href="' . esc_url( $marketplace_data['api_info'] ) . '" target="_blank">' . $marketplace_data['name'] . ' ' . _( 'API') . '</a>'
-					)
-				);
+				// add option for themeforest - personal token
+				if ( 'envato' == $marketplace_slug ) {
+					add_settings_field(
+						$marketplace_slug . '_personal_token',
+						$marketplace_data['name'] . ' ' .  __( 'Personal Token', 'a10e_av' ),
+						array($this, 'settings_field_input'),
+						$slug,
+						$slug,
+						array(
+							'id' 	=> $marketplace_slug . '_personal_token',
+							'desc' 	=> '<a href="' . esc_url( $marketplace_data['token_info'] ) . '" target="_blank">' . _( 'Generate a personal token' ) . '</a>'
+						)
+					);
+				} else {
+					add_settings_field(
+						$marketplace_slug . '_api_key',
+						$marketplace_data['name'] . ' ' .  __( 'API Key', 'a10e_av' ),
+						array($this, 'settings_field_input'),
+						$slug,
+						$slug,
+						array(
+							'id' 	=> $marketplace_slug . '_api_key',
+							'desc' 	=> __( 'More info about ', 'a10e' ) . '<a href="' . esc_url( $marketplace_data['api_info'] ) . '" target="_blank">' . $marketplace_data['name'] . ' ' . _( 'API') . '</a>'
+						)
+					);
+				}
 
 				// Call actions attached to after_marketplace_fields
 				do_action( 'after_marketplace_fields', $this );
@@ -180,7 +197,19 @@ if(!class_exists('AQ_Verifier')) {
 				$slug, 
 				array(
 					'id' 	=> 'custom_style', 
-					'desc' 	=> __('Add custom inline styling to the registration page', 'a10e_av')
+					'desc' 	=> __( 'Add custom inline styling to the registration page', 'a10e_av' )
+				)
+			);
+
+			add_settings_field(
+				'disable_support_verification',
+				'Disable Support verification',
+				array($this, 'settings_field_checkbox'),
+				$slug,
+				$slug,
+				array(
+					'id' 	=> 'disable_support_verification',
+					'desc' 	=> __( 'Disable support verification for Themeforest during registration', 'a10e_av' )
 				)
 			);
 
@@ -192,7 +221,7 @@ if(!class_exists('AQ_Verifier')) {
 				$slug, 
 				array(
 					'id' 	=> 'disable_username', 
-					'desc' 	=> __('Disable the username field and use only the purchase code', 'a10e_av')
+					'desc' 	=> __( 'Disable the username field and use only the purchase code', 'a10e_av' )
 				)
 			);
 			
@@ -204,7 +233,7 @@ if(!class_exists('AQ_Verifier')) {
 				$slug, 
 				array(
 					'id' 	=> 'display_credit', 
-					'desc' 	=> __('Display small credit line to help others find the plugin', 'a10e_av')
+					'desc' 	=> __( 'Display small credit line to help others find the plugin', 'a10e_av' )
 				)
 			);
 
@@ -271,7 +300,7 @@ if(!class_exists('AQ_Verifier')) {
 				// add_settings_error(
 				// 	$slug,
 				// 	'invalid_author',
-				// 	__('That username/api-key is invalid. Please make sure that you have entered them correctly', 'a10e_av'),
+				// 	__( 'That username/api-key is invalid. Please make sure that you have entered them correctly', 'a10e_av' ),
 				// 	'error'
 				// );
 
@@ -321,6 +350,7 @@ if(!class_exists('AQ_Verifier')) {
 				$marketplace_username = isset($_POST['marketplace_username']) ? esc_attr($_POST['marketplace_username']) : '';
 				$purchase_code = esc_attr($_POST['purchase_code']);
 				$marketplace = esc_attr($_POST['marketplace']);
+
 				$verify = $this->verify_purchase($marketplace, $marketplace_username, $purchase_code);
 
 				if($action == 'Register') {
@@ -340,6 +370,7 @@ if(!class_exists('AQ_Verifier')) {
 				            
 				            // Update user meta
 				            $items = array();
+
 				            $items[$purchase_code] = array (
 				            	'name' => $verify['item_name'],
 				            	'id' => $verify['item_id'],
@@ -349,10 +380,11 @@ if(!class_exists('AQ_Verifier')) {
 				            	'purchase_code' => $verify['purchase_code'],
 				            	'marketplace' => $verify['marketplace'],
 				            	'marketplace_name' => $verify['marketplace_name'],
+				            	'supported_until' => $verify['supported_until']
 					            // TODO change help IMG url
 				            );
-				            
-				            update_user_meta( $user_id, 'purchased_items', $items );
+
+							update_user_meta( $user_id, 'purchased_items', $items );
 
 							$redirect_to = site_url( $this->loginfile_url() . 'checkemail=registered', 'login_post');
 							wp_safe_redirect( $redirect_to );
@@ -415,7 +447,7 @@ if(!class_exists('AQ_Verifier')) {
 			}
 
 			// Detect active marketplace APIs as set in settings
-			$select = '<label for="marketplace">' . __('Marketplace') . '<br /><select name="marketplace" id="marketplace" class="input" tabindex="10">%1$s</select>';
+			$select = '<label for="marketplace">' . __( 'Marketplace', 'a10e_av' ) . '<br /><select name="marketplace" id="marketplace" class="input" tabindex="10">%1$s</select>';
 			$options = '';
 			foreach ( $this->apis as $marketplace_slug => $marketplace_data ) {
 				if ( $this->marketplace_active($marketplace_slug) ){
@@ -424,12 +456,12 @@ if(!class_exists('AQ_Verifier')) {
 			}
 
 			if ( empty( $options ) ){
-				$errors->add( 'no_active_verification_method', '<strong>' . __( 'Error' ) . '</strong>: '. __( 'No active purchase verification method available! Please check settings.' ) );
+				$errors->add( 'no_active_verification_method', '<strong>' . __( 'Error', 'a10e_av' ) . '</strong>: '. __( 'No active purchase verification method available! Please check settings.', 'a10e_av' ) );
 			}
 
 
 
-			login_header(__('Verify Purchase Form'), '<p class="message register">' . __('Verify Purchase') . '</p>', $errors);
+			login_header(__( 'Verify Purchase Form', 'a10e_av' ), '<p class="message register">' . __( 'Verify Purchase', 'a10e_av' ) . '</p>', $errors);
 
 			?>
 
@@ -486,25 +518,34 @@ if(!class_exists('AQ_Verifier')) {
 		 */
 		function view_registration_form( $errors = '', $verified = array() ) {
 
-			login_header(__('Registration Form'), '<p class="message register">' . __('Register An Account') . '</p>', $errors);
+			login_header(__( 'Registration Form', 'a10e_av' ), '<p class="message register">' . __( 'Register An Account', 'a10e_av' ) . '</p>', $errors);
 
 			if($verified) {
 				?>
+				<?php if ( !isset( $this->options['disable_support_verification'] ) && '' != $this->theme_supported_message ) { ?>
+					<div class="message register">
+						<p><?php echo $this->theme_supported_message; ?></p>
+					</div>
+				<?php }?>
+
 				<div class="message success">
-					
+
 					<h3>Purchase Information</h3><br/>
 					<ul>
 					<?php if ( isset( $verified['marketplace_name'] ) ) { ?>
-						<li><strong><?php echo __( 'Marketplace' ) . ': '; ?></strong><?php echo $verified['marketplace_name']; ?></li>
+						<li><strong><?php echo __( 'Marketplace', 'a10e_av' ) . ': '; ?></strong><?php echo $verified['marketplace_name']; ?></li>
 					<?php }?>
 					<?php if ( isset( $verified['buyer'] ) && !isset($this->options['disable_username']) ) { ?>
-						<li><strong><?php echo __( 'Buyer' ) . ': '; ?></strong><?php echo $verified['buyer']; ?></li>
+						<li><strong><?php echo __( 'Buyer', 'a10e_av' ) . ': '; ?></strong><?php echo $verified['buyer']; ?></li>
 					<?php }?>
 					<?php if ( isset( $verified['item_name'] ) ) { ?>
-						<li><strong><?php echo __( 'Item' ) . ': '; ?></strong><?php echo $verified['item_name']; ?></li>
+						<li><strong><?php echo __( 'Item', 'a10e_av' ) . ': '; ?></strong><?php echo $verified['item_name']; ?></li>
 					<?php }?>
 					<?php if ( isset( $verified['purchase_code'] ) ) { ?>
-						<li><strong><?php echo __( 'Purchase Code' ) . ': '; ?></strong><?php echo $verified['purchase_code']; ?></li>
+						<li><strong><?php echo __( 'Purchase Code', 'a10e_av' ) . ': '; ?></strong><?php echo $verified['purchase_code']; ?></li>
+					<?php }?>
+					<?php if ( isset( $verified['supported_until'] ) && !isset( $this->options['disable_support_verification'] ) ) { ?>
+						<li><strong><?php echo __( 'Supported Until', 'a10e_av' ) . ': '; ?></strong><?php echo  date( get_option( 'date_format' ), strtotime($verified['supported_until'] ) ); ?></li>
 					<?php }?>
 					</ul>
 
@@ -560,13 +601,13 @@ if(!class_exists('AQ_Verifier')) {
 			
 			// Check for empty fields
 			if ( (empty($marketplace_username) && !$options['disable_username'] ) || empty($purchase_code) || empty($marketplace) ) {
-				$errors->add( 'incomplete_form', '<strong>' . __( 'Error' ) . '</strong>: '. __( 'Incomplete form fields.' ) );
+				$errors->add( 'incomplete_form', '<strong>' . __( 'Error', 'a10e_av' ) . '</strong>: '. __( 'Incomplete form fields.', 'a10e_av' ) );
 				return $errors;
 			}
 
 			// Check for active verification type
 			if ( empty($this->apis[$marketplace]) || !$this->marketplace_active($marketplace) ) {
-				$errors->add( 'invalid_verification_method', '<strong>' . __( 'Error' ) . '</strong>: '. __( 'Ivalid verification method.' ) );
+				$errors->add( 'invalid_verification_method', '<strong>' . __( 'Error', 'a10e_av' ) . '</strong>: '. __( 'Ivalid verification method.', 'a10e_av' ) );
 				return $errors;
 			}
 
@@ -574,11 +615,16 @@ if(!class_exists('AQ_Verifier')) {
 			$slug 			= $this->page;
 			$options 		= get_option($slug);
 			$author 		= $options[ $marketplace . '_marketplace_username' ];
-			$api_key		= $options[ $marketplace . '_api_key' ];
+			$api_key		= $options[ $marketplace . '_api_key' ]; // mojomarket
+			$personal_token = $options[ $marketplace . '_personal_token' ]; // themeforest
+			$args = array(
+				'headers' => array( 'Authorization' => 'Bearer ' . $personal_token )
+			);
 			$purchase_code 	= urlencode($purchase_code);
 			$api_url 		= sprintf( $this->apis[$marketplace]['url'], $author, $api_key, $purchase_code );
-			$verified 		= false; 
+			$verified 		= false;
 			$result 		= '';
+
 
 			// Check if purchase code already used
 			global $wpdb;
@@ -594,15 +640,15 @@ if(!class_exists('AQ_Verifier')) {
 			$registered = $wpdb->get_var($query);
 
 			if($registered) {
-				$errors->add('used_purchase_code', __( 'Sorry, but that item purchase code has already been registered with another account. Please login to that account to continue, or create a new account with another purchase code.') );
+				$errors->add('used_purchase_code', __( 'Sorry, but that item purchase code has already been registered with another account. Please login to that account to continue, or create a new account with another purchase code.', 'a10e_av' ) );
 				return $errors;
 			}
 
-			// Send request to marketplace to verify purchase
-			$response 	= wp_remote_get($api_url);
-
 			switch ( $marketplace){
 				case 'mojomarketplace' :
+
+					// Send request to marketplace to verify purchase
+					$response = wp_remote_get($api_url);
 
 					if( !is_wp_error($response) ) {
 
@@ -628,11 +674,11 @@ if(!class_exists('AQ_Verifier')) {
 
 						} else {
 							// Tell user the purchase code is invalid
-							$errors->add( 'invalid_purchase_code', __( 'Sorry, but that item purchase code is invalid. Please make sure you have entered the correct purchase code.' ) );
+							$errors->add( 'invalid_purchase_code', __( 'Sorry, but that item purchase code is invalid. Please make sure you have entered the correct purchase code.', 'a10e_av' ) );
 						}
 
 					} else {
-						$errors->add('server_error', __( 'Something went wrong, please try again.' ) );
+						$errors->add('server_error', __( 'Something went wrong, please try again.', 'a10e_av' ) );
 					}
 
 					if( $verified ) {
@@ -645,35 +691,53 @@ if(!class_exists('AQ_Verifier')) {
 
 				default:
 					//case 'envato' :
+
+					// Send request to marketplace to verify purchase
+					$response = wp_remote_get($api_url, $args);
+
 					if( !is_wp_error($response) ) {
 
 						$result = json_decode($response['body'], true);
-						$item 	= @$result['verify-purchase']['item_name'];
+						$item = @$result['item']['name']; //@$result['verify-purchase']['item_name'];
+						$supported_until = @$result['supported_until']; //@$result['verify-purchase']['supported_until'];
 
 						if ( $item ) {
 
 							// Check if username matches the one on marketplace
-							if( strcmp( $result['verify-purchase']['buyer'] , $marketplace_username ) !== 0 && !$options['disable_username'] ) {
-								$errors->add('invalid_marketplace_username', __( 'That username is not valid for this item purchase code. Please make sure you entered the correct username (case sensitive).' ) );
+							if( strcmp( $result['buyer'] , $marketplace_username ) !== 0 && !$options['disable_username'] ) {
+								$errors->add('invalid_marketplace_username', __( 'That username is not valid for this item purchase code. Please make sure you entered the correct username (case sensitive).', 'a10e_av' ) );
 							} else {
-								// add purchase code to $result['verify_purchase']
-								$result['verify-purchase']['purchase_code'] = $purchase_code;
-								$result['verify-purchase']['marketplace'] = $marketplace;
-								$result['verify-purchase']['marketplace_name'] = $this->apis[$marketplace]['name'];
-								$verified = true;
+								// Check if purchased theme is supported
+								if ( ( date( get_option('date_format') ) <= strtotime($supported_until) ) || $options['disable_support_verification'] ) {
+
+									$this->theme_supported_message = sprintf( __( 'Your theme support license is <strong>valid</strong> until <strong>%s</strong>.', 'a10e_av' ), date( get_option( 'date_format' ), strtotime( $supported_until ) ) );
+
+									// add purchase code to $result
+									$result['purchase_code'] = $purchase_code;
+									$result['marketplace'] = $marketplace;
+									$result['marketplace_name'] = $this->apis[$marketplace]['name'];
+									$result['item_name'] = @$result['item']['name'];
+									$verified = true;
+
+								} else {
+
+									$errors->add('unsupported_theme', sprintf( __( "Your theme support license has <strong>expired</strong> on <strong>%s</strong>!<br> To access the support forum, please <a href='%s' target='_blank'>extend your support license.</a>", 'a10e_av' ), date( get_option( 'date_format' ), strtotime( $supported_until ) ), @$result['item']['url'] ) );
+
+								}
+
 							}
 
 						} else {
 							// Tell user the purchase code is invalid
-							$errors->add('invalid_purchase_code', __( 'Sorry, but that item purchase code is invalid. Please make sure you have entered the correct purchase code.' ) );
+							$errors->add('invalid_purchase_code', __( 'Sorry, but that item purchase code is invalid. Please make sure you have entered the correct purchase code.', 'a10e_av' ) );
 						}
 
 					} else {
-						$errors->add('server_error', __( 'Something went wrong, please try again.' ) );
+						$errors->add('server_error', __( 'Something went wrong, please try again.', 'a10e_av' ) );
 					}
 
 					if( $verified ) {
-						return $result['verify-purchase'];
+						return $result;
 					} else {
 						return $errors;
 					}
